@@ -1,15 +1,16 @@
+require("dotenv").config({ path: "./mongo.env" }); 
+
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const contactsRouter = require("./routes/api/contacts");
-require("dotenv").config();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-const uriDb = "mongodb+srv://funk72:admin@cluster0.dydumwq.mongodb.net/db-contacts?retryWrites=true&w=majority";
+const uriDb = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}/db-contacts?retryWrites=true&w=majority`;
 
 mongoose
   .connect(uriDb, {
