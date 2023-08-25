@@ -1,25 +1,45 @@
-const express = require('express')
-const logger = require('morgan')
-const cors = require('cors')
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const Joi = require("joi");
+const contactsRouter = require("./routes/api/contacts");
+const authRouter = require("./routes/api/authRouter");
+require("dotenv").config({ path: "./mongo.env" }); 
 
-const contactsRouter = require('./routes/api/contacts')
+const app = express();
 
-const app = express()
+app.use(cors());
+app.use(express.json());
 
-const formatsLogger = app.get('env') === 'development' ? 'dev' : 'short'
+const uriDb = `mongodb+srv://${encodeURIComponent(process.env.DB_USERNAME)}:${encodeURIComponent(process.env.DB_PASSWORD)}@${process.env.DB_HOST}/db-contacts?retryWrites=true&w=majority`;
 
-app.use(logger(formatsLogger))
-app.use(cors())
-app.use(express.json())
+mongoose
+  .connect(uriDb, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => {
+    console.log("Database connection successful");
+  })
+  .catch((error) => {
+    console.error("Database connection error:", error);
+    process.exit(1);
+  });
 
-app.use('/api/contacts', contactsRouter)
+app.use("/api", contactsRouter);
+app.use("/api", authRouter);
 
 app.use((req, res) => {
-  res.status(404).json({ message: 'Not found' })
-})
+  res.status(404).json({ message: "Not found" });
+});
 
 app.use((err, req, res, next) => {
-  res.status(500).json({ message: err.message })
-})
+  console.error(err.stack); 
+  res.status(500).json({ message: err.message });
+});
 
-module.exports = app
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
