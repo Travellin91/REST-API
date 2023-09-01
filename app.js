@@ -3,8 +3,9 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const contactsRouter = require("./routes/api/contacts");
 const authRouter = require("./routes/api/authRouter");
-const avatarRouter = require("./routes/api/avatarRoutes");
-require("dotenv").config({ path: "./mongo.env" }); 
+const { uploadAvatar } = require("./controllers/authController");
+const authMiddleware = require("./middleware/authMiddleware");
+require("dotenv").config({ path: "./mongo.env" });
 
 const app = express();
 
@@ -29,14 +30,15 @@ mongoose
 
 app.use("/api", contactsRouter);
 app.use("/api", authRouter);
-app.use("/api", avatarRouter);
+
+app.patch("/api/users/avatars", authMiddleware, uploadAvatar);
 
 app.use((req, res) => {
   res.status(404).json({ message: "Not found" });
 });
 
 app.use((err, req, res, next) => {
-  console.error(err.stack); 
+  console.error(err.stack);
   res.status(500).json({ message: err.message });
 });
 
