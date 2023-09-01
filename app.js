@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const contactsRouter = require("./routes/api/contacts");
 const authRouter = require("./routes/api/authRouter");
-const { uploadAvatar } = require("./controllers/authController");
+const authController = require("./controllers/authController");
 const authMiddleware = require("./middleware/authMiddleware");
 require("dotenv").config({ path: "./mongo.env" });
 
@@ -31,7 +31,23 @@ mongoose
 app.use("/api", contactsRouter);
 app.use("/api", authRouter);
 
-app.patch("/api/users/avatars", authMiddleware, uploadAvatar);
+app.patch(
+  "/api/users/avatars",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { file } = req;
+      if (!file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      
+      res.json({ avatarURL: `/avatars/${newAvatarName}` });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Server error" });
+    }
+  }
+);
 
 app.use((req, res) => {
   res.status(404).json({ message: "Not found" });
