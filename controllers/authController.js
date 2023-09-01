@@ -1,0 +1,129 @@
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const Joi = require("joi");
+const gravatar = require("gravatar");
+const User = require("../models/user");
+const jimp = require("jimp");
+const path = require("path");
+const fs = require("fs/promises");
+
+const registerSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(6).required(),
+});
+
+const loginSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().required(),
+});
+
+async function registerUser(req, res) {
+  const { error } = registerSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  const { email, password } = req.body;
+
+  try {
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.status(409).json({ message: "Email in use" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const avatarURL = gravatar.url(email, { s: "250", r: "pg", d: "mm" });
+
+    const newUser = new User({
+      email,
+      password: hashedPassword,
+      subscription: "starter",
+      avatarURL,
+    });
+
+    await newUser.save();
+
+    const token = jwt.sign({ id: newUser._id }, process.env.USER_TOKEN, {
+      expiresIn: "1h",
+    });
+
+    res.status(201).json({
+      user: {
+        email: newUser.email,
+        subscription: newUser.subscription,
+        avatarURL: newUser.avatarURL,
+      },
+      token,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+const uploadAvatar = async (req, res) => {
+  try {
+    const { file } = req;
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    const image = await jimp.read(file.path);
+    await image.cover(250, 250).write(file.path);
+
+    const newAvatarName = `${req.user._id}${path.parse(file.originalname).ext}`;
+    const newAvatarPath = path.join(__dirname, "../public/avatars", newAvatarName);
+    await fs.rename(file.path, newAvatarPath);
+
+    await User.findByIdAndUpdate(req.user._id, { avatarURL: `/avatars/${newAvatarName}` });
+
+    res.json({ avatarURL: `/avatars/${newAvatarName}` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+async function loginUser(req, res) {
+  const { error } = loginSchema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.USER_TOKEN, {
+      expiresIn: "1h",
+    });
+
+    res.json({
+      user: {
+        email: user.email,
+        subscription: user.subscription,
+        avatarURL: user.avatarURL,
+      },
+      token,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+module.exports = {
+  registerUser,
+  uploadAvatar,
+  loginUser,
+};
