@@ -1,44 +1,17 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
 const contactsRouter = require("./routes/api/contacts");
 const authRouter = require("./routes/api/authRouter");
 const authController = require("./controllers/authController");
 const authMiddleware = require("./middleware/authMiddleware");
-require("dotenv").config({ path: "./mongo.env" });
-
-const nodemailer = require("nodemailer");
-
-const transport = nodemailer.createTransport({
-  host: "smtp.meta.ua",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.SMTP_EMAIL_ADDRESS,
-    pass: process.env.SMTP_EMAIL_PASSWORD,
-  },
-});
+const mongoose = require("./config/mongoose"); 
+const transport = require("./config/nodemailer"); 
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
-
-const uriDb = `mongodb+srv://${encodeURIComponent(process.env.DB_USERNAME)}:${encodeURIComponent(process.env.DB_PASSWORD)}@${process.env.DB_HOST}`;
-
-mongoose
-  .connect(uriDb, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    console.log("Database connection successful");
-  })
-  .catch((error) => {
-    console.error("Database connection error:", error);
-    process.exit(1);
-  });
 
 app.use("/api", contactsRouter);
 app.use("/api", authRouter);

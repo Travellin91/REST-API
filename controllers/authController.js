@@ -6,9 +6,8 @@ const User = require("../models/user");
 const jimp = require("jimp");
 const path = require("path");
 const fs = require("fs/promises");
-const nodemailer = require("nodemailer");
+const nodemailerTransport = require("../config/nodemailer");
 const { v4: uuidv4 } = require("uuid");
-require("dotenv").config({ path: "./mongo.env" });
 
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
@@ -22,16 +21,6 @@ const loginSchema = Joi.object({
 
 const sendVerificationEmail = async (email, verificationToken) => {
   try {
-    const transport = nodemailer.createTransport({
-      host: "smtp.meta.ua",
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.SMTP_EMAIL_ADDRESS,
-        pass: process.env.SMTP_EMAIL_PASSWORD,
-      },
-    });
-
     const mailOptions = {
       from: process.env.SMTP_EMAIL_ADDRESS,
       to: email,
@@ -39,7 +28,7 @@ const sendVerificationEmail = async (email, verificationToken) => {
       text: `Please click the following link to verify your email: http://localhost:3000/api/users/verify/${verificationToken}`,
     };
 
-    await transport.sendMail(mailOptions);
+    await nodemailerTransport.sendMail(mailOptions);
   } catch (error) {
     console.error(error);
   }
@@ -173,9 +162,10 @@ const verifyEmail = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    user.verify = true;
-    user.verificationToken = null;
-    await user.save();
+    await User.findByIdAndUpdate(user._id, {
+      verify: true,
+      verificationToken: null,
+    });
 
     return res.status(200).json({ message: "Verification successful" });
   } catch (error) {
